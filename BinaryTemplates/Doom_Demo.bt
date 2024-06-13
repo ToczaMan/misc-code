@@ -1,0 +1,98 @@
+//------------------------------------------------
+//--- 010 Editor v13.0.1 Binary Template
+//
+//      File: Doom_Demo.bt
+//   Authors: ToczaMan
+//   Version: 1
+//   Purpose: Parsing Doom 1/2 demo LMP files (https://doomwiki.org/wiki/Demo)
+//  Category: Game
+// File Mask: *.lmp
+//  ID Bytes: 
+//   History: 
+//   1     2023-03-27 ToczaMan: Template created
+//------------------------------------------------
+enum <byte> Version {
+    DOOM_1_2 = 102,
+    DOOM_1_3 = 103,
+    DOOM_1_4 = 104,
+    DOOM_1_5 = 105,
+    DOOM_1_6 = 106,
+    DOOM_1_7 = 107,
+    DOOM_1_8 = 108,
+    DOOM_1_9 = 109
+};
+
+enum <byte> Skill {
+    TOO_YOUNG = 0,
+    NOT_TOO_ROUGH = 1,
+    HMP = 2,
+    UV = 3,
+    NIGHTMARE = 4
+};
+
+enum <byte> Episode {
+    E1_OR_DOOM2 = 1,
+    E2 = 2,
+    E3 = 3,
+    E4 = 4
+};
+
+//enum <byte> Map
+//};
+
+enum <byte> MultiplayerMode {
+    SINGLE_COOP = 0,
+    DEATHMATCH = 1,
+    ALTDEATH = 2
+};
+
+struct PlayerState {
+    int32 unknown[21];
+};
+
+struct PlayerInteraction {
+    byte weaponfired : 1;
+    byte use : 1;
+    if (use) {
+        byte game_save : 3;
+        byte use_unused : 1;
+    } else {
+        byte weapon_change : 1;
+        byte weapon_slot : 3;
+    }
+    byte unused : 1;
+    byte special_mode : 1;
+};
+
+struct PlayerAction {
+    byte movement;
+    byte strafing;
+    byte turning;
+    PlayerInteraction interaction;
+};
+
+struct Demo {
+    Version version;
+    Skill skill;
+    Episode episode;
+    //Map map;
+    byte map;
+    MultiplayerMode mp_mode;
+    byte respawn;
+    byte fast;
+    byte nomonsters;
+    byte player_view;
+    byte p1_present;
+    byte p2_present;
+    byte p3_present;
+    byte p4_present;
+    local byte player_count = p1_present + p2_present + p3_present + p4_present, player_index;
+    for (player_index = 0; player_index < player_count; ++player_index) {
+        local int32 action_count = 0;
+        while (ReadUByte() != 0x80) {
+            PlayerAction player_actions;
+            ++action_count;
+        }
+    }
+    byte end_marker <format=hex, comment="Should be 0x80">;
+};

@@ -1,0 +1,587 @@
+//------------------------------------------------
+//--- 010 Editor v14.0.1 Binary Template
+//
+//      File: Fallout1_SAVE.bt
+//   Authors: ToczaMan
+//   Version: 1
+//   Purpose: Parsing Fallout 1's SAVE.DAT file. Rerefence: https://github.com/alexbatalov/fallout1-re/, https://falloutmods.fandom.com/wiki/SAVE.DAT_File_Format
+//  Category: Game
+// File Mask: *.lmp
+//  ID Bytes: 
+//   History: 
+//   1     2024-06-12 ToczaMan: Template created
+//------------------------------------------------
+
+local int NUM_GVARS = 618;
+
+BigEndian();
+
+typedef uint32 RealGameDate <read=RealGameDateRead, write=RealGameDateWrite>;
+
+string RealGameDateRead(RealGameDate ticks) {
+    time64_t fallout_epoch;
+    StringToTime64T("12/05/2161 00:00:00", fallout_epoch);
+    uint32 seconds_passed = ticks / 10;
+    return Time64TToString((time64_t)((uint64)fallout_epoch + seconds_passed));
+}
+
+void RealGameDateWrite(RealGameDate &ticks, string real_game_date_str) {
+    time64_t fallout_epoch;
+    time64_t real_game_secs;
+    StringToTime64T("12/05/2161 00:00:00", fallout_epoch);
+    StringToTime64T(real_game_date_str, real_game_secs);
+    ticks = (uint32)(((uint64)real_game_secs - (uint64)fallout_epoch) * 10);
+}
+
+struct Header {
+    char signature[0x18] <name="Signature", comment="Always equal to FALLOUT SAVE FILE. Cannot be modified, otherwise the save will be treated as corrupted.">;
+    uint16 version_major <name="Major Version", comment="Major version of the game which made the save file.">;
+    uint16 version_minor <name="Minor Version", comment="Minor version of the game which made the save file.">;
+    char letter_r <name="R", comment="The letter 'R'. Ask the developers why. Could be 'R' for Release?", bgcolor=cGray>;
+    char player_name[0x20] <name="Player Name", comment="Player name. ASCII string, so the longest possible name is 31 characters.">;
+    char save_name[0x1e] <name="Save Name", comment="Savegame name. ASCII string.">;
+    uint16 day_saved <name="Day Saved", comment="The day the game was saved. Realtime, not gametime.">;
+    uint16 month_saved <name="Month Saved">;
+    uint16 year_saved <name="Year Saved">;
+    uint32 time_saved <name="Time Saved", comment="Minutes + hours (24-hour format), realtime. E.g. if the time is 16:45, then it is 0x0000003D. (This is a bit odd, as 17:44 also gives 0x3D . Perhaps it was supposed to be two 2-byte numbers (0x0010, 0x002D for 16:45). It doesn't seem to be used in the game in any case.)", bgcolor=cGray>;
+    uint16 save_game_month <name="Save Game Month", comment="The in-game month; for example, June is 0x0006 . Used only for displaying on the load/save screen.">;
+    uint16 save_game_day <name="Save Game Day", comment="The in-game day, also used only for the load/save screen.">;
+    uint16 save_game_year <name="Save Game Year", comment="The in-game year, also used only for the load/save screen.">;
+    RealGameDate real_game_date <name="Game Time", comment="The in-game date. This field stores the time – the number of seconds since December 5th 2161 00:00:00 multiplied by 10 (the number of 'ticks'). [Fallout 1 starts at December 5th 2161]">;
+    uint16 map_level <name="Map Level">;
+    uint16 map_number <name="Map Number", comment="Number of the map you are currently on (from maps.txt). First two bytes are map level, last two are map number.">;
+    char map_filename[0x10] <name="Map Filename", comment="Filename of the map you are currently on. I.e. if you are in the Arroyo temple, it is ARTEMPLE.sav. An ASCII string.">;
+    ubyte thumb_bmp[224 * 133] <name="Thumbnail Bitmap", comment="This is a bitmap (bmp) image, with no header or palette. The palette is taken from master.dat or patch000.dat. Image size is 224x133.">;
+    char padding[0x80] <name="Padding", comment="This section is always filled with zeroes.">;
+};
+
+struct Function1 {
+    uint32 player_cid <name="Player CID">;
+};
+
+struct Gvars {
+    uint32 gvars[NUM_GVARS] <name="GVARS", comment="An array of global variables (GVAR). NG is the number of GVARs in vault13.gam">;
+    byte water_movie_play_flag;
+};
+
+struct MapFilename {
+    string map_filename;
+};
+
+struct Function3 {
+    uint32 no_open_maps <name="Number of Open Maps", comment="The number of open maps. Also the number of *.sav files in the save folder.">;
+    MapFilename map_filenames[no_open_maps] <optimize=false, name="Map Filenames", comment="The size of the next field varies depending on the number of opened maps. It is a list of file names of maps which have already been visited when the game is saved. These are ASCII strings, each ending with a 0x00 byte.">;
+    uint32 automap_db_size <name="AUTOMAP.DB size", comment="The size of AUTOMAP.DB - the temporary file game creates while playing in the data\maps and removes after.">;
+};
+
+enum <uint32> Facing {
+    NORTHEAST,
+    EAST,
+    SOUTHEAST,
+    SOUTHWEST,
+    WEST,
+    NORTHWEST
+};
+
+struct InventoryItem {
+    uint32 values[23];
+    if (values[12] != 40) {
+        uint32 loaded_rounds;
+    }
+    if (values[12] == 4 || values[12] == 8 || values[12] == 21 || values[12] == 79) {
+        uint32 ammo_type;
+    }
+};
+
+enum <uint32> ObjId {
+    PLAYER_ID = 18000
+};
+
+struct ObjectFlags {
+    uint32 shoot_thru : 1;
+    uint32 seen : 1;
+    uint32 light_thru : 1;
+    uint32 wall_trans_end : 1;
+    uint32 unused_flag: 1;
+    uint32 worn : 1;
+    uint32 in_right_hand : 1;
+    uint32 in_left_hand : 1;
+    uint32 unused_flag: 4;
+    uint32 trans_energy : 1;
+    uint32 trans_steam : 1;
+    uint32 trans_glass : 1;
+    uint32 trans_wall : 1;
+    uint32 trans_none : 1;
+    uint32 trans_red : 1;
+    uint32 used : 1;
+    uint32 no_highlight : 1;
+    uint32 multihex : 1;
+    uint32 flag_0x400 : 1;
+    uint32 unused_flag: 4;
+    uint32 lighting : 1;
+    uint32 no_block : 1;
+    uint32 flat : 1;
+    uint32 temporary : 1;
+    uint32 unused_flag: 1;
+    uint32 hidden : 1;
+};
+
+struct Results {
+    uint32 unused_flag : 8;
+    uint32 perform_reverse: 1;
+    uint32 backwash: 1;
+    uint32 crip_random: 1;
+    uint32 random_hit: 1;
+    uint32 hurt_self : 1;
+    uint32 dud : 1;
+    uint32 lose_ammo : 1;
+    uint32 hit_self : 1;
+    uint32 lose_turn : 1;
+    uint32 drop : 1;
+    uint32 destroy : 1;
+    uint32 explode : 1;
+    uint32 bypass : 1;
+    uint32 on_fire : 1;
+    uint32 critical: 1;
+    uint32 hit: 1;
+    uint32 dead: 1;
+    uint32 blind: 1;
+    uint32 crip_arm_right : 1;
+    uint32 crip_arm_left : 1;
+    uint32 crip_leg_right : 1;
+    uint32 crip_leg_left : 1;
+    uint32 knocked_down: 1;
+    uint32 knocked_out : 1;
+};
+
+struct Pid {
+    uint32 obj_type : 8;
+    uint32 lst_index : 24;
+};
+
+struct Fid {
+    uint32 unused : 1;
+    uint32 id3 : 3;
+    uint32 obj_type : 4;
+    uint32 id2 : 8;
+    uint32 id1 : 4;
+    uint32 lst_index : 12;
+};
+
+struct Function5 {
+    ObjId obj_id <name="Object ID", comment="18000 = PLAYER_ID. 0x0,0x0,'FP' [0x00004650] - these characters are always here. Also, they appear only once in the file. They're followed by a list of the player's characteristics.">;
+    uint32 player_coords <name="Player Tile", comment="Player's coordinates on the map.">;
+    uint32 x;
+    uint32 y;
+    uint32 screen_x;
+    uint32 screen_y;
+    uint32 player_frame <name="Player's Current Frame">;
+    Facing players_facing <name="Player's Facing", comment="Player's facing: 0 - northeast 1 - east 2 - southeast 3 - southwest 4 - west 5 - northwest">;
+    Fid player_fid <name="Player FID Number", comment="Player FID number (appearance). Changes depending on what armor is worn. [0100000B] is the jumpsuit. Note that the engine will always change this value back to what you are wearing, so it's pointless to edit it here.", format=hex>;
+    ObjectFlags player_flags <name="Player Flags", comment="Unknown, usually 0x60002420. The last byte has some interesting properties. Setting the 0x10 bit puts the player in a permanent, always-successful sneak mode. Setting the 0x08 bit will draw the player under other critters and scenery. Setting the last byte to 00 will turn off the player light source.", format=hex>;
+    uint32 map_level <name="Map Level", comment="Which level of the map the player is on.">;
+    Pid pid <name="Player PID", format=hex>;
+    uint32 cid <name="Player CID">;
+    uint32 lightDistance;
+    uint32 lightIntensity;
+    uint32 outline;
+    uint32 sid <name="Player SID">;
+    uint32 field80;
+    uint32 no_inv_items <name="Number of Inventory Items", comment="Number of items in inventory.">;
+    uint32 inv_capacity <name="Inventory Capacity", comment="Do not touch! This indicates how much memory should be reserved for inventory items. The more items the player collects, the bigger this will get.">;
+    uint32 inv_ptr <name="Inventory Pointer">;
+    uint32 flags;
+    uint32 damage_last_turn;
+    uint32 maneuver;
+    uint32 ap <name="Last AP">;
+    Results results <name="Player State", comment="Also known as \"results\". Bit field. Each bit indicates a crippled body part: 0x0004 - eyes 0x0008 - right arm 0x0010 - left arm 0x0020 - right leg 0x0040 - left leg 0x0001 - dead">;
+    uint32 ai_packet;
+    uint32 team;
+    uint32 who_hit_me_cid;
+    uint32 current_hp <name="Current Hitpoints">;
+    uint32 current_rad <name="Current Radiation Level">;
+    uint32 current_poison <name="Current Poison Level">;
+    InventoryItem inventory_items[no_inv_items] <name="Inventory Items", comment="A list of items in inventory.", optimize=false>;
+    uint32 tile_center_tile <name="Screen Center Tile", comment="ID of tile that should be in the center of the screen after load">;
+};
+
+enum <uint32> Gender {
+    MALE,
+    FEMALE
+};
+
+struct CritterFlags {
+    uint32 unused_flag: 27;
+    uint32 addicted : 1;
+    uint32 level : 1;
+    uint32 unused_flag: 2;
+    uint32 sneaking : 1;
+};
+
+struct SkillBonuses {
+    int32 small_guns;
+    int32 big_guns;
+    int32 energy_weapons;
+    int32 unarmed;
+    int32 melee_weapons;
+    int32 throwing;
+    int32 first_aid;
+    int32 doctor;
+    int32 sneak;
+    int32 lockpick;
+    int32 steal;
+    int32 traps;
+    int32 science;
+    int32 repair;
+    int32 speech;
+    int32 barter;
+    int32 gambling;
+    int32 outdoorsman;
+};
+
+struct Function6 {
+    uint32 sneak_working <name="Sneak Working", comment="Some sneak roll value?">;
+    CritterFlags flags <name="Flags", comment="0x07 = Tabs flags. Bitmask: 0x01 - Sneak, 0x02 - Radiated, 0x08 - Level, 0x10 - Addict.">;
+    uint32 base_str <name="Base Strength">;
+    uint32 base_per <name="Base Perception">;
+    uint32 base_end <name="Base Endurance">;
+    uint32 base_cha <name="Base Charisma">;
+    uint32 base_int <name="Base Intelligence">;
+    uint32 base_agi <name="Base Agility">;
+    uint32 base_lck <name="Base Luck">;
+    uint32 base_hp <name="Base Hitpoints">;
+    uint32 base_ap <name="Base Action Points">;
+    uint32 base_ac <name="Base Armor Class">;
+    uint32 unarmed_dmg <name="Unarmed Damage (Unused)">;
+    uint32 base_melee_dmg <name="Base Melee Damage">;
+    uint32 base_carry_weight <name="Base Carry Weight">;
+    uint32 base_seq <name="Base Sequence">;
+    uint32 base_healing_rate <name="Base Healing Rate">;
+    uint32 base_crit_chance <name="Base Critical Chance">;
+    uint32 base_crit_hit_roll_mod <name="Base Critical Hit Table Roll Modifier">;
+    uint32 base_dmg_thr_normal <name="Base Damage Threshold (Normal)">;
+    uint32 base_dmg_thr_laser <name="Base Damage Threshold (Laser)">;
+    uint32 base_dmg_thr_fire <name="Base Damage Threshold (Fire)">;
+    uint32 base_dmg_thr_plasma <name="Base Damage Threshold (Plasma)">;
+    uint32 base_dmg_thr_electrical <name="Base Damage Threshold (Electrical)">;
+    uint32 base_dmg_thr_emp <name="Base Damage Threshold (EMP)">;
+    uint32 base_dmg_thr_explosive <name="Base Damage Threshold (Explosive)">;    
+    uint32 base_dmg_res_normal <name="Base Damage Resistance (Normal)">;
+    uint32 base_dmg_res_laser <name="Base Damage Resistance (Laser)">;
+    uint32 base_dmg_res_fire <name="Base Damage Resistance (Fire)">;
+    uint32 base_dmg_res_plasma <name="Base Damage Resistance (Plasma)">;
+    uint32 base_dmg_res_electrical <name="Base Damage Resistance (Electrical)">;
+    uint32 base_dmg_res_emp <name="Base Damage Resistance (EMP)">;
+    uint32 base_dmg_res_explosive <name="Base Damage Resistance (Explosive)">;    
+    uint32 base_rad_res <name="Base Radiation Resistance">;
+    uint32 base_poison_res <name="Base Posion Resistance">;    
+    uint32 player_start_age <name="Player Starting Age">;
+    Gender player_gender <name="Player's Gender">;    
+    uint32 bonus_str <name="Bonus Strength">;
+    uint32 bonus_per <name="Bonus Perception">;
+    uint32 bonus_end <name="Bonus Endurance">;
+    uint32 bonus_cha <name="Bonus Charisma">;
+    uint32 bonus_int <name="Bonus Intelligence">;
+    uint32 bonus_agi <name="Bonus Agility">;
+    uint32 bonus_lck <name="Bonus Luck">;
+    uint32 bonus_hp <name="Bonus Hitpoints">;
+    uint32 bonus_ap <name="Bonus Action Points">;
+    uint32 bonus_ac <name="Bonus Armor Class">;
+    uint32 bonus_unarmed_dmg <name="Bonus Unarmed Damage (Unused)">;
+    uint32 bonus_melee_dmg <name="Bonus Melee Damage">;
+    uint32 bonus_carry_weight <name="Bonus Carry Weight">;
+    uint32 bonus_seq <name="Bonus Sequence">;
+    uint32 bonus_healing_rate <name="Bonus Healing Rate">;
+    uint32 bonus_crit_chance <name="Bonus Critical Chance">;
+    uint32 bonus_crit_hit_roll_mod <name="Bonus Critical Hit Table Roll Modifier">;
+    uint32 bonus_dmg_thr_normal <name="Bonus Damage Threshold (Normal)">;
+    uint32 bonus_dmg_thr_laser <name="Bonus Damage Threshold (Laser)">;
+    uint32 bonus_dmg_thr_fire <name="Bonus Damage Threshold (Fire)">;
+    uint32 bonus_dmg_thr_plasma <name="Bonus Damage Threshold (Plasma)">;
+    uint32 bonus_dmg_thr_electrical <name="Bonus Damage Threshold (Electrical)">;
+    uint32 bonus_dmg_thr_emp <name="Bonus Damage Threshold (EMP)">;
+    uint32 bonus_dmg_thr_explosive <name="Bonus Damage Threshold (Explosive)">;    
+    uint32 bonus_dmg_res_normal <name="Bonus Damage Resistance (Normal)">;
+    uint32 bonus_dmg_res_laser <name="Bonus Damage Resistance (Laser)">;
+    uint32 bonus_dmg_res_fire <name="Bonus Damage Resistance (Fire)">;
+    uint32 bonus_dmg_res_plasma <name="Bonus Damage Resistance (Plasma)">;
+    uint32 bonus_dmg_res_electrical <name="Bonus Damage Resistance (Electrical)">;
+    uint32 bonus_dmg_res_emp <name="Bonus Damage Resistance (EMP)">;
+    uint32 bonus_dmg_res_explosive <name="Bonus Damage Resistance (Explosive)">;    
+    uint32 bonus_rad_res <name="Bonus Radiation Resistance">;
+    uint32 bonus_poison_res <name="Bonus Posion Resistance">;    
+    uint32 bonus_player_age <name="Player Bonus Age">;
+    Gender bonus_gender <name="Bonus Player's Gender", comment="Additional gender. Apparently sex-change operations are still available in the post-nuclear world.">;
+    SkillBonuses skill_bonuses <name="Bonus Skills", comment="Skills; value is the number of points over the base (from primary stats, traits, and perks).">;
+    uint32 critter_body_type <name="Critter Body Type", comment="Proto ID (-0x0400)">;
+    uint32 critter_experience <name="Critter Experience">;
+    uint32 critter_kill_type <name="Critter Kill Type">;
+};
+
+struct Function7 {
+    uint32 kill_counts[0xf] <name="Kill Counts", comment="Count of killed critters, same order as on the character sheet.">;
+};
+
+struct Function8 {
+    uint32 tag_skills[0x4];
+};
+
+struct Perks {
+    uint32 awareness;
+    uint32 bonus_hth_attacks;
+    uint32 bonus_hth_damage;
+    uint32 bonus_move;
+    uint32 bonus_ranged_damage;
+    uint32 bonus_rate_of_fire;
+    uint32 earlier_sequence;
+    uint32 faster_healing;
+    uint32 more_criticals;
+    uint32 night_vision;
+    uint32 presence;
+    uint32 rad_resistance;
+    uint32 toughness;
+    uint32 strong_back;
+    uint32 sharpshooter;
+    uint32 silent_running;
+    uint32 survivalist;
+    uint32 master_trader;
+    uint32 educated;
+    uint32 healer;
+    uint32 fortune_finder;
+    uint32 better_criticals;
+    uint32 empathy;
+    uint32 slayer;
+    uint32 sniper;
+    uint32 silent_death;
+    uint32 action_boy;
+    uint32 mental_block;
+    uint32 lifegiver;
+    uint32 dodger;
+    uint32 snakeater;
+    uint32 mr_fixit;
+    uint32 medic;
+    uint32 master_thief;
+    uint32 speaker;
+    uint32 heave_ho;
+    uint32 friendly_foe;
+    uint32 pickpocket;
+    uint32 ghost;
+    uint32 cult_of_personality;
+    uint32 scrounger;
+    uint32 explorer;
+    uint32 flower_child;
+    uint32 pathfinder;
+    uint32 animal_friend;
+    uint32 scout;
+    uint32 mysterious_stranger;
+    uint32 ranger;
+    uint32 quick_pockets;
+    uint32 smooth_talker;
+    uint32 swift_learner;
+    uint32 tag;
+    uint32 mutate;
+    uint32 nuka_cola_addiction;
+    uint32 buffout_addiction;
+    uint32 mentats_addiction;
+    uint32 psycho_addiction;
+    uint32 radaway_addiction;
+    uint32 weapon_long_range;
+    uint32 weapon_accurate;
+    uint32 weapon_penetrate;
+    uint32 weapon_knockback;
+    uint32 powered_armor;
+    uint32 combat_armor;
+};
+
+enum <uint32> CombatStatus {
+    NOT_IN_COMBAT = 2,
+    IN_COMBAT = 3
+};
+
+struct Function11 {
+    CombatStatus combat_status <name="Combat Status", comment="Combat status. (02 - not in combat; 03 - in combat) ">;
+    if (combat_status == IN_COMBAT) {
+        uint32 combat_turn_running;
+        uint32 combat_free_move;
+        uint32 combat_exps;
+        uint32 no_of_combat_npcs <name="Number of Combat NPCs", comment="Number of NPCs involved in combat">;
+        uint32 no_of_noncombat_npcs <name="Number of Non-Combat NPCs", comment="Number of NPCs not involved in combat. Usually the player.">;
+        uint32 no_of_npcs <name="Total Number of NPCs", comment="Number of NPC at the current map level, including party members, plus a player at the beginning of the battle (or perhaps corpses are counted too).">;
+        uint32 player_id <name="Player ID", comment="Perhaps player's ID.">;
+        uint32 turn_order[no_of_npcs] <name="Turn Order CIDs", comment="NR from offset 0x18. Perhaps this array indicates the turn order of NPCs and player.">;
+    }
+};
+
+struct Function13 {
+    uint32 no_of_sp <name="Number of Skill Points", comment="Should be less than 100">;
+    uint32 level <name="Level">;
+    uint32 exp <name="Experience">;
+    uint32 reputation <name="Reputation (Unused)">;
+    uint32 karma <name="Karma (Unused)">;
+};
+
+struct QueueListNode {
+    RealGameDate time;
+    uint32 type;
+    uint32 object_id;
+    switch (type) {
+        case 0:
+            break;
+        case 2:
+            break;
+        case 3:
+            uint32 sid;
+            uint32 fixed_param;
+            break;
+        case 6:
+            break;
+    }
+};
+
+struct Function14 {
+    uint32 no_of_queue_list_nodes;
+    QueueListNode queue[no_of_queue_list_nodes] <optimize=false>;
+};
+
+enum <int32> Trait {
+    TRAIT_FAST_METABOLISM,
+    TRAIT_BRUISER,
+    TRAIT_SMALL_FRAME,
+    TRAIT_ONE_HANDER,
+    TRAIT_FINESSE,
+    TRAIT_KAMIKAZE,
+    TRAIT_HEAVY_HANDED,
+    TRAIT_FAST_SHOT,
+    TRAIT_BLOODY_MESS,
+    TRAIT_JINXED,
+    TRAIT_GOOD_NATURED,
+    TRAIT_CHEM_RELIANT,
+    TRAIT_CHEM_RESISTANT,
+    TRAIT_NIGHT_PERSON,
+    TRAIT_SKILLED,
+    TRAIT_GIFTED,
+    TRAIT_COUNT,
+    NONE = -1
+};
+
+struct Function15 {
+    Trait traits[2];
+};
+
+struct AutomapFlags {
+    uint32 unused_flag : 29;
+    uint32 automap_with_scanner : 1;
+    uint32 automap_with_high_details: 1;
+    uint32 automap_in_game : 1;
+};
+
+struct Function17 {
+    uint32 game_difficulty;
+    uint32 combat_difficulty;
+    uint32 violence_level;
+    uint32 target_highlight;
+    uint32 running_burning_guy <comment="Unavailable in ingame options...">;
+    uint32 combat_messages;
+    uint32 combat_taunts;
+    uint32 language_filter;
+    uint32 running;
+    uint32 subtitles;
+    uint32 item_highlight;
+    uint32 combat_speed;
+    uint32 player_speedup;
+    float text_base_delay;
+    uint32 master_volume;
+    uint32 music_volume;
+    uint32 sndfx_volume;
+    uint32 speech_volume;
+    float brightness;
+    float mouse_sensitivity;
+};
+
+struct Function18 {
+    uint32 last_level <name="Last Level", comment="Level. When you enter the character window, this level becomes equal to the level from Function 13, and you get skill points (LevelFromFunction13-LevelFromFunction18) * SpPerLevel.">;
+    byte free_perk <name="Free Perk", comment="Indicates if you have any outstanding perks you may have saved for later.">;
+};
+
+struct TwnSelKnwFlag {
+    byte vault_13[7];
+    byte vault_15[7];
+    byte shady_sands[7];
+    byte junktown[7];
+    byte raiders[7];
+    byte necropolis[7];
+    byte the_hub[7];
+    byte brotherhood[7];
+    byte military_base[7];
+    byte the_glow[7];
+    byte boneyard[7];
+    byte cathedral[7];
+    byte special_12[7];
+    byte special_13[7];
+    byte special_14[7];
+};
+
+enum <byte> WorldGrid {
+    UNKNOWN,
+    KNOWN,
+    DISCOVERED
+};
+
+struct Function19 {
+    WorldGrid world_grid[31 * 29];
+    TwnSelKnwFlag twn_sel_knw_flag;
+    uint32 first_visit_flag;
+    uint32 encounter_specials;
+    uint32 our_town;
+    uint32 our_section;
+    uint32 world_xpos;
+    uint32 world_ypos;
+};
+
+struct Function21 {
+    byte movies_played[14];
+};
+
+struct Function22 {
+    RealGameDate times_skill_used[18 * 3];
+};
+
+struct Function23 {
+    uint32 party_member_count;
+    uint32 party_member_item_count <comment="Apparently this has to be 20000 by default">;
+    uint32 party_member_object_ids[party_member_count - 1];
+};
+
+struct Function25 {
+    uint32 ui_state;
+    uint32 panel_state;
+    uint32 active_slot;
+    uint32 combat_panel_state;
+};
+
+struct Save {
+    Header header <name="Save File Header">;
+    Function1 player_cid;
+    Gvars gvars <name="GVARS">;
+    Function3 maps <name="Maps (Function 3)">;
+    Gvars gvars <name="GVARS", comment="This is an exact duplicate of Function #2. It's not known why this was done.">;
+    Function5 player_and_inv <name="Player and Inventory", comment="Size: variable. This appears to be in the same format used for objects on maps.">;
+    Function6 player_stats <name="Player Stats", comment="This section has the same format as PRO files for critters, starting at offset 0x30 in the PRO file.">;
+    Function7 kill_counts <name="Kill Counts">;
+    Function8 tag_skills <name="Tag Skills", comment="Tag skills; -1 if unused.">;
+    Perks perks <name="Perks", comment="Perks. Note that some have an effect only when they are taken, so changing values here may not do anything.">;
+    Function11 combat <name="Combat">;
+    Function13 exp_lvl <name="Experience and Level">;
+    Function14 queue <name="Event Queue">;
+    Function15 traits <name="Traits">;
+    AutomapFlags automap_flags <name="Automap Flags">;
+    Function17 preferences <name="Preferences">;
+    Function18 character_window <name="Character Window">;
+    Function19 world_map <name="World Map">;
+    Function21 video_archives <name="Video Archives">;
+    Function22 skill_use <name="Skills Used">;
+    Function23 party_members <name="Party Members">;
+    Function25 interface <name="Interface">;
+};
+
+Save savefile_t <name="SAVE.DAT", comment="SAVE.DAT file structure">;

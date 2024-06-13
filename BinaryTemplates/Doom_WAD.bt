@@ -1,0 +1,386 @@
+//------------------------------------------------
+//--- 010 Editor v12.0.1 Binary Template
+//
+//      File: Doom_WAD.bt
+//   Authors: f7cjo, ToczaMan
+//   Version: 2
+//   Purpose: Parsing Doom 1/2 WAD files (https://doomwiki.org/wiki/WAD, https://github.com/zokum-no/zokumbsp/blob/master/src/doom/wad.hpp)
+//  Category: Game
+// File Mask: *.wad
+//  ID Bytes: 
+//   History: 
+//   1     2022-10-08 f7cjo: Template created
+//   2     2023-01-26 ToczaMan: Changed structure
+//------------------------------------------------
+
+#include "Doom_Demo.bt"
+
+LittleEndian();
+
+local int32 sector_count = 0;
+
+struct Header {
+    char wad_type[4] <comment="The ASCII characters \"IWAD\" or \"PWAD\"">;
+    int32 numlumps <comment="An integer specifying the number of lumps in the WAD">;
+    int32 dir_off <comment="An integer holding a pointer to the location of the directory", format=hex>;
+};
+
+struct Vertex {
+    int16 x_pos;
+    int16 y_pos;
+};
+
+enum <int16> ThingType {
+    MT_UNKNOWN = 0,
+    MT_PLAYER_1 = 1,
+    MT_PLAYER_2 = 2,
+    MT_PLAYER_3 = 3,
+    MT_PLAYER_4 = 4,
+    MT_DEATHMATCH = 5,
+    MT_POSSESSED = 3004,
+    MT_SHOTGUY = 9,
+    MT_VILE = 64,
+    MT_UNDEAD = 66,
+    MT_FATSO = 67,
+    MT_CHAINGUY = 65,
+    MT_TROOP = 3001,
+    MT_SERGEANT = 3002,
+    MT_SHADOWS = 58,
+    MT_HEAD = 3005,
+    MT_BRUISER = 3003,
+    MT_KNIGHT = 69,
+    MT_SKULL = 3006,
+    MT_SPIDER = 7,
+    MT_BABY = 68,
+    MT_CYBORG = 16,
+    MT_PAIN = 71,
+    MT_WOLFSS = 84,
+    MT_KEEN = 72,
+    MT_BOSSBRAIN = 88,
+    MT_BOSSSPIT = 89,
+    MT_BOSSTARGET = 87,
+    MT_BARREL = 2035,
+    MT_TELEPORTMAN = 14,
+    MT_MISC0 = 2018,
+    MT_MISC1 = 2019,
+    MT_MISC2 = 2014,
+    MT_MISC3 = 2015,
+    MT_MISC4 = 5,
+    MT_MISC5 = 13,
+    MT_MISC6 = 6,
+    MT_MISC7 = 39,
+    MT_MISC8 = 38,
+    MT_MISC9 = 40,
+    MT_MISC10 = 2011,
+    MT_MISC11 = 2012,
+    MT_MISC12 = 2013,
+    MT_INV = 2022,
+    MT_MISC13 = 2023,
+    MT_INS = 2024,
+    MT_MISC14 = 2025,
+    MT_MISC15 = 2026,
+    MT_MISC16 = 2045,
+    MT_MEGA = 83,
+    MT_CLIP = 2007,
+    MT_MISC17 = 2048,
+    MT_MISC18 = 2010,
+    MT_MISC19 = 2046,
+    MT_MISC20 = 2047,
+    MT_MISC21 = 17,
+    MT_MISC22 = 2008,
+    MT_MISC23 = 2049,
+    MT_MISC24 = 8,
+    MT_MISC25 = 2006,
+    MT_CHAINGUN = 2002,
+    MT_MISC26 = 2005,
+    MT_MISC27 = 2003,
+    MT_MISC28 = 2004,
+    MT_SHOTGUN = 2001,
+    MT_SUPERSHOTGUN = 82,
+    MT_MISC29 = 85,
+    MT_MISC30 = 86,
+    MT_MISC31 = 2028,
+    MT_MISC32 = 30,
+    MT_MISC33 = 31,
+    MT_MISC34 = 32,
+    MT_MISC35 = 33,
+    MT_MISC36 = 37,
+    MT_MISC37 = 36,
+    MT_MISC38 = 41,
+    MT_MISC39 = 42,
+    MT_MISC40 = 43,
+    MT_MISC41 = 44,
+    MT_MISC42 = 45,
+    MT_MISC43 = 46,
+    MT_MISC44 = 55,
+    MT_MISC45 = 56,
+    MT_MISC46 = 57,
+    MT_MISC47 = 47,
+    MT_MISC48 = 48,
+    MT_MISC49 = 34,
+    MT_MISC50 = 35,
+    MT_MISC51 = 49,
+    MT_MISC52 = 50,
+    MT_MISC53 = 51,
+    MT_MISC54 = 52,
+    MT_MISC55 = 53,
+    MT_MISC56 = 59,
+    MT_MISC57 = 60,
+    MT_MISC58 = 61,
+    MT_MISC59 = 62,
+    MT_MISC60 = 63,
+    MT_MISC61 = 22,
+    MT_MISC62 = 15,
+    MT_MISC63 = 18,
+    MT_MISC64 = 21,
+    MT_MISC65 = 23,
+    MT_MISC66 = 20,
+    MT_MISC67 = 19,
+    MT_MISC68 = 10,
+    MT_MISC69 = 12,
+    MT_MISC70 = 28,
+    MT_MISC71 = 24,
+    MT_MISC72 = 27,
+    MT_MISC73 = 29,
+    MT_MISC74 = 25,
+    MT_MISC75 = 26,
+    MT_MISC76 = 54,
+    MT_MISC77 = 70,
+    MT_MISC78 = 73,
+    MT_MISC79 = 74,
+    MT_MISC80 = 75,
+    MT_MISC81 = 76,
+    MT_MISC82 = 77,
+    MT_MISC83 = 78,
+    MT_MISC84 = 79,
+    MT_MISC85 = 80,
+    MT_MISC86 = 81
+};
+
+struct Thing {
+    int16 x_pos;
+    int16 y_pos;
+    int16 angle;
+    ThingType type;
+    int16 flags <format=binary>;
+};
+
+
+struct LinedefFlags {
+    int16 block : 1;
+    int16 block_monsters : 1;
+    int16 twosided : 1;
+    int16 upper_unpegged : 1;
+    int16 lower_unpegged : 1;
+    int16 secret : 1;
+    int16 block_sound : 1;
+    int16 never_show : 1;
+    int16 always_show : 1;
+    int16 reserved : 7;
+};
+
+struct Linedef {
+    int16 start_vertex;
+    int16 end_vertex;
+    LinedefFlags flags;
+    int16 special_type;
+    int16 sector_tag;
+    int16 front_sidedef;
+    int16 back_sidedef;
+};
+
+struct Sidedef {
+    int16 x_off;
+    int16 y_off;
+    char upper_texture[8];
+    char lower_texture[8];
+    char middle_texture[8];
+    int16 sector_num;
+};
+
+struct Seg {
+    int16 start_vertex;
+    int16 end_vertex;
+    int16 angle <comment=Str("Degrees: %f", (uint16)this * 180.0 / Pow(2.0, 15.0))>;
+    int16 linedef_num;
+    int16 dir;
+    int16 off;
+};
+
+struct Sector {
+    int16 floor_height;
+    int16 ceiling_height;
+    char floor_flat[8];
+    char ceiling_flat[8];
+    int16 light_level;
+    int16 special_type;
+    int16 tag;
+};
+
+struct Subsector {
+    int16 seg_count;
+    int16 first_seg_num;
+};
+
+typedef enum<byte>
+{
+    ALLOW = 0,
+    REJECT = 1
+} RejectBit;
+
+struct RejectByte {
+    local byte bit_idx;
+    for (bit_idx = 0; bit_idx < 8; ++bit_idx) {
+        RejectBit rej_bit: 1 <name="REJECT BIT">;
+    }
+};
+
+struct Block {
+    do {
+        int16 linedef;
+    } while (linedef != -1);
+};
+
+struct BlockmapHeader {
+    int16 grid_origin_x;
+    int16 grid_origin_y;
+    int16 col_count;
+    int16 row_count;
+};
+
+struct Blockmap {
+    local int64 start_pos = FTell(), offset, current_offset;
+    BlockmapHeader header <name="Header", fgcolor=cYellow>;
+    int16 offsets[header.col_count * header.row_count] <name="Offsets", optimize=false>;
+    local int64 header_offsets_size = sizeof(header) + sizeof(offsets);
+    struct Blocks {    
+        for (offset = 0; offset < header.col_count * header.row_count; ++offset) {
+            current_offset = (int64)(offsets[offset]);
+            FSeek(start_pos + current_offset * sizeof(int16));
+            Block block <name="Block", fgcolor=cGreen>;
+        }
+    } blocks <name="Blocks">;
+};
+
+struct NodeBoundingBox {
+    int16 y_top;
+    int16 y_bottom;
+    int16 x_left;
+    int16 x_right;
+};
+
+struct Node {
+    int16 part_line_x;
+    int16 part_line_y;
+    int16 part_line_x_delta;
+    int16 part_line_y_delta;
+    NodeBoundingBox right_box <name="Right bounding box">;
+    NodeBoundingBox left_box<name="Left bounding box">;
+    int16 right_child;
+    int16 left_child;
+};
+
+struct Endoom {
+    uint16 vga_buffer[2000];
+};
+
+struct LumpEntry {
+    int32 filepos <comment="An integer holding a pointer to the start of the lump's data in the file", format=hex>;
+    int32 size <comment="An integer representing the size of the lump in bytes">;
+    char name[8] <comment="An ASCII string defining the lump's name. The name has a limit of 8 characters, the same as the main portion of an MS-DOS filename. The name must be nul-terminated if less than 8 characters; for maximum tool compatibility, it is best to pad any remainder with nul characters as well">;
+    if (!Strncmp(name, "SECTORS", 8)) {
+        sector_count = size / sizeof(Sector);
+    }
+};
+
+struct Directory(int32& numlumps) {
+    LumpEntry lump_entries[numlumps] <name=name, optimize=false>;
+};
+
+struct LumpDataEntry(int32& lump_data_size) {
+    char data[lump_data_size];
+};
+
+struct LumpData(int32& numlumps, Directory& dir) {
+    local int32 lump_entry_idx, lump_data_size;
+    for (lump_entry_idx = 0; lump_entry_idx < numlumps; ++lump_entry_idx) {
+        FSeek(dir.lump_entries[lump_entry_idx].filepos);        
+        lump_data_size = dir.lump_entries[lump_entry_idx].size;
+        if (lump_data_size > 0) {
+            switch (dir.lump_entries[lump_entry_idx].name) {            
+            case "THINGS":
+                struct {
+                    Thing things[lump_data_size / sizeof(Thing)];
+                } things <name="THINGS", bgcolor=cDkGreen>;
+                break;
+            case "VERTEXES":
+                struct {
+                    Vertex vertexes[lump_data_size / sizeof(Vertex)];
+                } vertexes <name="VERTEXES", bgcolor=cBlue>;
+                break;
+            case "LINEDEFS":
+                struct {
+                    Linedef linedefs[lump_data_size / sizeof(Linedef)];
+                } linedefs <name="LINEDEFS", bgcolor=cWhite>;
+                break;
+            case "SIDEDEFS":
+                struct {
+                    Sidedef sidedefs[lump_data_size / sizeof(Sidedef)];
+                } sidedefs <name="SIDEDEFS", bgcolor=cWhite, fgcolor=cBlack>;
+                break;
+            case "SEGS":
+                struct {
+                    Seg segs[lump_data_size / sizeof(Seg)];
+                } segs <name="SEGS", bgcolor=cWhite, fgcolor=cBlue>;
+                break;
+            case "SSECTORS":
+                struct {
+                    Subsector subsectors[lump_data_size / sizeof(Subsector)];
+                } ssectors <name="SSECTORS", bgcolor=cDkYellow, fgcolor=cLtBlue>;
+                break;
+            case "NODES":
+                struct {
+                    Node nodes[lump_data_size / sizeof(Node)];
+                } nodes <name="NODES", bgcolor=0x006aff>;
+                break;
+            case "SECTORS":
+                struct {
+                    Sector sectors[lump_data_size / sizeof(Sector)];
+                } sectors <name="SECTORS", bgcolor=cYellow>;
+                break;
+            case "REJECT":
+                struct {
+                    RejectByte reject_bytes[lump_data_size / sizeof(byte)] <optimize=true>;
+                } reject <name="REJECT", bgcolor=cPurple>;
+                break;
+            case "BLOCKMAP":
+                struct {
+                    Blockmap blockmap <optimize=false>;
+                } blockmap <name="BLOCKMAP", bgcolor=cRed>;
+                break;
+            case "ENDOOM":
+                Endoom endoom <name="ENDOOM">;
+                break;
+            case "DEMO1":
+            case "DEMO2":
+            case "DEMO3":
+            case "DEMO4":
+                Demo demo <name="DEMO">;
+            default:
+                struct {
+                    LumpDataEntry lump_data(lump_data_size);
+                } lump_data <name="lump_data", bgcolor=cBlack, comment="Unknown lump data">;
+            }
+        }
+    }
+};
+
+struct Wad {
+    Header wadinfo_t <name="Header", comment="WAD file header", bgcolor=cDkBlue>;
+    FSeek(wadinfo_t.dir_off);
+    Directory dir_t(wadinfo_t.numlumps) <name="Directory", comment="The directory associates names of lumps with the data that belong to them. It consists of a number of entries, each with a length of 16 bytes. The length of the directory is determined by the number given in the WAD header", bgcolor=cDkRed>;
+    FSeek(sizeof(Header));
+    LumpData lump_data(wadinfo_t.numlumps, dir_t) <name="Lump Data", comment="The directory associates names of lumps with the data that belong to them. It consists of a number of entries, each with a length of 16 bytes. The length of the directory is determined by the number given in the WAD header">;
+};
+
+Wad wadfile_t <name="Wad", comment="WAD file structure">;
